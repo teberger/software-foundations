@@ -1,0 +1,45 @@
+module Main where
+
+data Term = Tru |
+            Fls |
+            Zero |
+            If Term Term Term |
+            Succ Term |
+            Pred Term |
+            IsZero Term
+          deriving Eq
+
+instance Show Term where
+  show Tru = "TRUE"
+  show Fls = "FALSE"
+  show (If t1 t2 t3) = "IF " ++ show t1 ++
+                       " THEN " ++ show t2 ++
+                       " ELSE " ++ show t3
+  show (Succ t) = "SUCC " ++ show t
+  show (Pred t) = "PRED " ++ show t
+  show (IsZero t) = "ISZERO " ++ show t
+  
+isValue :: Term -> Bool
+isValue Fls = True
+isValue Tru = True
+isValue Zero = True
+isValue (Pred _) = True
+isValue (Succ _) = True
+isValue _ = False
+
+isNumericValue :: Term -> Bool
+isNumericValue Zero = True
+isNumericValue (Succ _) = True
+isNumericValue (Pred _) = True
+
+eval1 :: Term -> Maybe Term
+eval1 t
+  | isValue t = Just t
+  | t == IsZero = case t of
+                   Zero -> Just Tru
+                   _ -> Just Fls
+  | otherwise = Nothing
+
+eval :: Term -> Term
+eval = undefined
+                       
