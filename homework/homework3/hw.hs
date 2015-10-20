@@ -40,22 +40,19 @@ eval1 (Succ t) = Just (Succ t)
 
 eval1 (Pred Zero) = Just Zero
 eval1 (Pred (Succ t)) = Just t
-eval1 (Pred t) = case eval1 t of
-                  Just t2 -> Just (Pred t2)
-                  Nothing -> Nothing
+eval1 (Pred t) = eval1 t >>= (Just . Pred)
+
                   
 eval1 (IsZero Zero) = Just Tru
 eval1 (IsZero (Succ t)) = Just Fls
-eval1 (IsZero t) = case eval1 t of
-                    Just t -> Just (IsZero t)
-                    Nothing -> Nothing
-
+eval1 (IsZero t) = eval1 t >>= Just . IsZero
 
 eval1 (If Tru t2 _) = Just t2
 eval1 (If Fls _ t3) = Just t3
 eval1 (If t1 t2 t3) = case eval1 t1 of
                        Just Tru -> Just t2
                        Just Fls -> Just t3
+                       Just _ -> Nothing
                        Nothing -> Nothing
 
 eval :: Term -> Term

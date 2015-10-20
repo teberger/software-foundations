@@ -1,6 +1,7 @@
 \documentclass{article}
 \usepackage{amsmath}
 %include lhs2TeX.fmt
+%include polycode.fmt
 
 \begin{document}
 \title{Homework 2: CS  558}
