@@ -5,6 +5,7 @@ import Text.ParserCombinators.Parsec.Char
 
 import Control.Monad.Identity
 
+
 data LambdaCalculus = LC 
 data LambdaValue = LV
 
