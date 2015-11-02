@@ -6,92 +6,161 @@ import Text.ParserCombinators.Parsec.Char
 
 type VarName = String
 
-data LambdaCalculus = Term | Value
-
---data Term = Variable Value | 
---            Abstraction VarName Type Term |
---            Application Term Term
-
-data Term = TermValue Value |
-            Abstraction VarName Type Term |
+data Term = Identifier VarName | 
+            Abstraction VarName Term |
             Application Term Term |
-            Constant ConstantValue |
             If Term Term Term |
             Succ Term |
             Pred Term |
-            IsZero Term 
-
-data ConstantValue = Tru | Fls | Zero deriving (Show, Eq, Enum)
-
-data Value = ConstantValue |
-             AbstractionValue VarName Type Term |
-             Numeric Term
+            IsZero Term |
+            Tru |
+            Fls |
+            Zero 
 
 data Type = Function Type Type |
-            Bool |
-            Nat
+            Boole |
+            Nat deriving Eq
 
-data TypeContext = Empty |
-                   Ext (VarName, Type) TypeContext
+instance Show Type where
+  show Boole = "Boolean"
+  show Nat = "Nat"
+  show (Function t1 t2) = "(" ++ show t1 ++ " -> " ++ show t2 ++ ")"
 
-whitespace = spaces <|> (many tab >> return ())
-killwhite p = whitespace >> p >>= (\x -> whitespace >> return x)
-maybebetween c1 p c2 = try (between (char c1) (char c2) p <|> p)
+data TypeContext 
 
+whitespace = many (spaces <|> (many tab >> return ())) >> return ()
 
-
-constant :: ParsecT String TypeContext IO Term
-constant = try $ killwhite
-           (tru <|> fls <|> zero <|> number <?> "Constant value")
-
-number :: ParsecT String TypeContext IO Term
-number = try $ do
+keyword p = try $ do
   whitespace
-  z <- try (zero <|> (string "succ" >>
-                      (maybebetween '(' number ')') >>=
-                      (return . Succ)))
-  return z
+  p' <- string p <?> ("Expecting keyword: " ++ p)
+  whitespace
 
-tru :: ParsecT String TypeContext IO Term
-tru = try (killwhite (string "tru"))
-      >> return (Constant Tru)
+tru :: ParsecT String Type IO Term
+tru = try $ do
+  keyword "tru"
+  setState Boole
+  return Tru
 
-fls :: ParsecT String TypeContext IO Term
-fls = try (killwhite (string "fls"))
-      >> return (Constant Fls)
+fls :: ParsecT String Type IO Term
+fls = try $ do
+  keyword "fls"
+  setState Boole
+  return Fls
+      
+zero :: ParsecT String Type IO Term
+zero = try $ do
+  keyword "0"
+  setState Boole
+  return Zero
 
-zero :: ParsecT String TypeContext IO Term
-zero = try (killwhite (string "0"))
-       >> return (Constant Zero)
-
-iszero :: ParsecT String TypeContext IO Term
+iszero :: ParsecT String Type IO Term
 iszero = try $ do
-  killwhite $ string "iszero"
-  t <- killwhite $ maybebetween '(' term ')'
-  return $ IsZero t
+  keyword "iszero"
+  keyword "("
+  t <- term <?> "Error parsing: Succ ( Term )"
+  t_type <- getState
+  if t_type == Nat
+  then do
+    keyword ")"
+    -- change the state from Nat to Boole
+    setState Boole
+    return (IsZero t)
+  else 
+    fail $ "Expected type 'Nat' but was " ++ show t_type
 
-succ :: ParsecT String TypeContext IO Term
+succ :: ParsecT String Type IO Term
 succ = try $ do
-  killwhite $ string "succ"
-  t <- killwhite $ maybebetween '(' term ')'
-  return (Succ t)
+  keyword "succ"
+  keyword "("
+  t <- term <?> "Error parsing: Succ ( Term )"
+  t_type <- getState
+  if t_type == Nat
+  then do
+    -- no need to change the state, it is the same
+    keyword ")"
+    return (Succ t)
+  else 
+    fail $ "Expected type 'Nat' but was " ++ show t_type
 
-pred :: ParsecT String TypeContext IO Term
+pred :: ParsecT String Type IO Term 
 pred = try $ do
-  killwhite $ string "pred"
-  t <- killwhite $ maybebetween '(' term ')'
-  return (Pred t)
+  keyword "pred"
+  keyword "("
+  t <- term <?> "Error parsing: Pred ( Term )"
+  t_type <- getState
+  if t_type == Nat
+  then do
+    -- no need to change the state, it is the same
+    keyword ")"
+    return (Pred t)
+  else 
+    fail $ "Expected type 'Nat' but was " ++ show t_type
 
-if_statement :: ParsecT String TypeContext IO Term
+if_statement :: ParsecT String Type IO Term
 if_statement = try $ do
-  killwhite $ string "if"
-  t1 <- killwhite $ maybebetween '(' term ')'
-  string "then"
-  t2 <- killwhite $ maybebetween '(' term ')'
-  string "else"
-  t3 <- killwhite $ maybebetween '(' term ')'
-  killwhite $ string "fi"
-  return $ If t1 t2 t3
+  keyword "if"
+  cond <- term <?> "Expecting 'term' following _if_"
+  cond_type <- getState
+  if cond_type /= Boole
+  then
+    fail $ "Expecting Boolean type for if-statement conditional, received: " ++
+           show cond_type
+  else do
+    keyword "then"
+    t_then <- term <?> "Expecting 'term' following _then_"
+    then_type <- getState
 
+    keyword "else"
+    t_else <- term <?> "Expecting 'term' following _else_"
+    else_type <- getState
+    keyword "fi"
+
+    if then_type == else_type
+    then do
+      setState then_type
+      return (If cond t_then t_else)
+    else 
+      fail $ "Type inconsistency for then/else parts of if statement\n" ++
+             "then type: " ++ (show then_type) ++ "\n" ++
+             "else type: " ++ (show else_type) ++ "\n"
+
+
+application :: ParsecT String Type IO Term
+application = try $ do
+  keyword "app"
+  keyword "("
+  t1 <- term <?> "Error parsing first 'term' following _app_"
+  t1_type <- getState
+  keyword ","
+  t2 <- term <?> "Error parsing second 'term' following \"_app_ Term\""
+  t2_type <- getState
+  keyword ")"
+  case t1_type of
+   (Function t11 t12) -> if t11 == t2_type
+                         then setState t12 >> return (Application t1 t2)
+                         else fail $ "Mismatch types for function application \n" ++
+                                     "function argument type: " ++ show t11 ++ "\n" ++
+                                     "argument type : " ++ show t2_type 
+   otherwise -> fail $ "Expecting Function type for the first term" ++
+                        "of an application, receieved: " ++ show t1_type
+
+abstraction :: ParsecT String Type IO Term
+abstraction = try $ do
+  keyword "abs"
+  keyword "("
+  iden <- identifier
+  keyword ":"
+  iden_type <- identifierType
+  keyword "."
+  setState identifierType
+  t <- term
+  t_type <- getState
+  keyword ")"
+  setState $ Function iden_type t_type
+  return $ Abstraction iden t
+
+identifier = undefined
+
+identifierType = undefined
 
 term = undefined
