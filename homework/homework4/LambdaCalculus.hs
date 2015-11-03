@@ -1,5 +1,9 @@
 module LambdaCalculus where
 
+import Prelude hiding (succ, pred)
+
+import Control.Monad.Trans (liftIO)
+
 import Text.Parsec
 import Text.Parsec.Char
 import Text.ParserCombinators.Parsec.Char
@@ -17,53 +21,61 @@ data Term = Identifier VarName |
             IsZero Term |
             Tru |
             Fls |
-            Zero 
+            Zero deriving Show
 
 data Type = Function Type Type |
             Boole |
-            Nat deriving Eq
+            Nat |
+            NullType deriving Eq
 
 instance Show Type where
   show Boole = "Boolean"
   show Nat = "Nat"
   show (Function t1 t2) = "(" ++ show t1 ++ " -> " ++ show t2 ++ ")"
+  show NullType = "<NULL>"
 
 
 type TypeContext = M.Map VarName Type
 
 returnType = "_"
 
+whitespace :: ParsecT String TypeContext IO ()
+whitespace = spaces >> return ()
+
+keyword :: String -> ParsecT String TypeContext IO ()
+keyword p = try $ do
+  whitespace
+  string p <?> ("Expecting keyword: " ++ p)
+  whitespace
+
+
 merge :: VarName -> Type -> TypeContext -> TypeContext
-merge = undefined
+merge name t context = M.insert name t context
 
 getReturnState :: ParsecT String TypeContext IO Type
 getReturnState = do
   gamma <- getState
   return $ gamma M.! returnType
 
-whitespace = many (spaces <|> (many tab >> return ())) >> return ()
-
-keyword p = try $ do
-  whitespace
-  string p <?> ("Expecting keyword: " ++ p)
-  whitespace
-
 tru :: ParsecT String TypeContext IO Term
 tru = try $ do
-  keyword "tru"
-  updateState $ merge returnType Boole
+  keyword "true"
+  modifyState $ merge returnType Boole
+  liftIO . print $ "tru"
   return Tru
 
 fls :: ParsecT String TypeContext IO Term
 fls = try $ do
-  keyword "fls"
-  updateState $ merge returnType Boole
+  keyword "false"
+  modifyState $ merge returnType Boole
+  liftIO . print $ "fls"
   return Fls
       
 zero :: ParsecT String TypeContext IO Term
 zero = try $ do
   keyword "0"
-  updateState $ merge returnType Boole
+  modifyState $ merge returnType Nat
+  liftIO . print $ "zero"
   return Zero
 
 iszero :: ParsecT String TypeContext IO Term
@@ -76,10 +88,11 @@ iszero = try $ do
   then do
     keyword ")"
     -- change the state from Nat to Boole
-    updateState $ merge returnType Boole
+    modifyState $ merge returnType Boole
+    liftIO . print $ "iszero"
     return (IsZero t)
   else 
-    fail $ "Expected type 'Nat' but was " ++ show t_type
+    fail $ "Expected type 'Nat' in iszero but was " ++ show t_type
 
 succ :: ParsecT String TypeContext IO Term
 succ = try $ do
@@ -91,9 +104,10 @@ succ = try $ do
   then do
     -- no need to change the state, it is the same
     keyword ")"
+    liftIO . print $ "succ"
     return (Succ t)
   else 
-    fail $ "Expected type 'Nat' but was " ++ show t_type
+    fail $ "Expected type 'Nat' in 'Succ' but was " ++ show t_type
 
 pred :: ParsecT String TypeContext IO Term 
 pred = try $ do
@@ -105,9 +119,10 @@ pred = try $ do
   then do
     -- no need to change the state, it is the same
     keyword ")"
+    liftIO . print $ "pred"
     return (Pred t)
   else 
-    fail $ "Expected type 'Nat' but was " ++ show t_type
+    fail $ "Expected type 'Nat' in 'Pred' but was " ++ show t_type
 
 if_statement :: ParsecT String TypeContext IO Term
 if_statement = try $ do
@@ -130,7 +145,8 @@ if_statement = try $ do
 
     if then_type == else_type
     then do
-      updateState $ merge returnType then_type 
+      modifyState $ merge returnType then_type 
+      liftIO . print $ "if statement"
       return (If cond t_then t_else)
     else 
       fail $ "Type inconsistency for then/else parts of if statement\n" ++
@@ -151,7 +167,8 @@ application = try $ do
   case t1_type of
    (Function t11 t12) -> if t11 == t2_type
                          then do
-                           updateState $ merge returnType t12
+                           modifyState $ merge returnType t12
+                           liftIO . print $ "application"
                            return (Application t1 t2)
                          else fail $ "Mismatch types for function application\n"
                                      ++ "function argument required type: "
@@ -172,23 +189,58 @@ abstraction = try $ do
   iden_type <- identifierType
   keyword "."
   
-  updateState $ merge iden iden_type
+  modifyState $ merge iden iden_type
 
   t <- term
   t_type <- getReturnState 
 
   keyword ")"
-  updateState $ merge returnType (Function iden_type t_type)
-  updateState $ M.delete iden 
+  modifyState $ merge returnType (Function iden_type t_type)
+  modifyState $ M.delete iden 
+  liftIO . print $ "abstraction"
   return $ Abstraction iden t
 
 
 --TODO: Just these two now and testing
 identifier :: ParsecT String TypeContext IO String
-identifier = undefined
+identifier = try $ do
+  whitespace
+  x <- many letter
+  case all (x /=) ["succ", "pred", "if", "fi", "arr", "Bool", "Nat",
+                   "abs", "app", "true", "false", "then", "else",
+                   "iszero", ""]
+    of
+   True -> do
+     return x
+   otherwise -> fail $ "Could not parse an identifier, must not be a reserved" ++
+                       " word or contain anything but characters: " ++ x
+
+identifier_term :: ParsecT String TypeContext IO Term
+identifier_term = try $ do
+  x <- identifier
+
+  context <- getState
+  case M.lookup x context of
+   Just t -> modifyState $ merge returnType t
+   Nothing -> fail $ "Identifier: " ++ x ++ " has no type in current typing context"
+  
+  liftIO . print $ "identifier" ++ x
+  return $ Identifier x
   
 term :: ParsecT String TypeContext IO Term
-term = undefined
+term = 
+  identifier_term <|>
+  abstraction <|>
+  application <|>
+  tru <|>
+  fls <|>
+  if_statement <|>
+  zero <|>
+  succ <|>
+  pred <|>
+  iszero <|>
+  (try (keyword "(" >> term >>= \k -> keyword ")" >> return k))
+  <?> "Basic term parsing"
 
 
 -- typing information and ------------------------------------------------------
