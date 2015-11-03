@@ -39,10 +39,10 @@ type TypeContext = M.Map VarName Type
 
 returnType = "_"
 
-whitespace :: ParsecT String TypeContext IO ()
+whitespace :: Parsec String TypeContext  ()
 whitespace = spaces >> return ()
 
-keyword :: String -> ParsecT String TypeContext IO ()
+keyword :: String -> Parsec String TypeContext  ()
 keyword p = try $ do
   whitespace
   string p <?> ("Expecting keyword: " ++ p)
@@ -52,33 +52,30 @@ keyword p = try $ do
 merge :: VarName -> Type -> TypeContext -> TypeContext
 merge name t context = M.insert name t context
 
-getReturnState :: ParsecT String TypeContext IO Type
+getReturnState :: Parsec String TypeContext  Type
 getReturnState = do
   gamma <- getState
   return $ gamma M.! returnType
 
-tru :: ParsecT String TypeContext IO Term
+tru :: Parsec String TypeContext  Term
 tru = try $ do
   keyword "true"
   modifyState $ merge returnType Boole
-  liftIO . print $ "tru"
   return Tru
 
-fls :: ParsecT String TypeContext IO Term
+fls :: Parsec String TypeContext  Term
 fls = try $ do
   keyword "false"
   modifyState $ merge returnType Boole
-  liftIO . print $ "fls"
   return Fls
       
-zero :: ParsecT String TypeContext IO Term
+zero :: Parsec String TypeContext  Term
 zero = try $ do
   keyword "0"
   modifyState $ merge returnType Nat
-  liftIO . print $ "zero"
   return Zero
 
-iszero :: ParsecT String TypeContext IO Term
+iszero :: Parsec String TypeContext  Term
 iszero = try $ do
   keyword "iszero"
   keyword "("
@@ -89,12 +86,11 @@ iszero = try $ do
     keyword ")"
     -- change the state from Nat to Boole
     modifyState $ merge returnType Boole
-    liftIO . print $ "iszero"
     return (IsZero t)
   else 
     fail $ "Expected type 'Nat' in iszero but was " ++ show t_type
 
-succ :: ParsecT String TypeContext IO Term
+succ :: Parsec String TypeContext  Term
 succ = try $ do
   keyword "succ"
   keyword "("
@@ -104,12 +100,11 @@ succ = try $ do
   then do
     -- no need to change the state, it is the same
     keyword ")"
-    liftIO . print $ "succ"
     return (Succ t)
   else 
     fail $ "Expected type 'Nat' in 'Succ' but was " ++ show t_type
 
-pred :: ParsecT String TypeContext IO Term 
+pred :: Parsec String TypeContext  Term 
 pred = try $ do
   keyword "pred"
   keyword "("
@@ -119,12 +114,11 @@ pred = try $ do
   then do
     -- no need to change the state, it is the same
     keyword ")"
-    liftIO . print $ "pred"
     return (Pred t)
   else 
     fail $ "Expected type 'Nat' in 'Pred' but was " ++ show t_type
 
-if_statement :: ParsecT String TypeContext IO Term
+if_statement :: Parsec String TypeContext  Term
 if_statement = try $ do
   keyword "if"
   cond <- term <?> "Expecting 'term' following _if_"
@@ -146,7 +140,6 @@ if_statement = try $ do
     if then_type == else_type
     then do
       modifyState $ merge returnType then_type 
-      liftIO . print $ "if statement"
       return (If cond t_then t_else)
     else 
       fail $ "Type inconsistency for then/else parts of if statement\n" ++
@@ -154,7 +147,7 @@ if_statement = try $ do
              "else type: " ++ (show else_type) ++ "\n"
 
 
-application :: ParsecT String TypeContext IO Term
+application :: Parsec String TypeContext  Term
 application = try $ do
   keyword "app"
   keyword "("
@@ -168,7 +161,6 @@ application = try $ do
    (Function t11 t12) -> if t11 == t2_type
                          then do
                            modifyState $ merge returnType t12
-                           liftIO . print $ "application"
                            return (Application t1 t2)
                          else fail $ "Mismatch types for function application\n"
                                      ++ "function argument required type: "
@@ -178,7 +170,7 @@ application = try $ do
    otherwise -> fail $ "Expecting Function type for the first term" ++
                         "of an application, receieved: " ++ show t1_type
 
-abstraction :: ParsecT String TypeContext IO Term
+abstraction :: Parsec String TypeContext  Term
 abstraction = try $ do
   keyword "abs"
   keyword "("
@@ -197,12 +189,11 @@ abstraction = try $ do
   keyword ")"
   modifyState $ merge returnType (Function iden_type t_type)
   modifyState $ M.delete iden 
-  liftIO . print $ "abstraction"
   return $ Abstraction iden t
 
 
 --TODO: Just these two now and testing
-identifier :: ParsecT String TypeContext IO String
+identifier :: Parsec String TypeContext  String
 identifier = try $ do
   whitespace
   x <- many letter
@@ -215,7 +206,7 @@ identifier = try $ do
    otherwise -> fail $ "Could not parse an identifier, must not be a reserved" ++
                        " word or contain anything but characters: " ++ x
 
-identifier_term :: ParsecT String TypeContext IO Term
+identifier_term :: Parsec String TypeContext  Term
 identifier_term = try $ do
   x <- identifier
 
@@ -224,10 +215,9 @@ identifier_term = try $ do
    Just t -> modifyState $ merge returnType t
    Nothing -> fail $ "Identifier: " ++ x ++ " has no type in current typing context"
   
-  liftIO . print $ "identifier" ++ x
   return $ Identifier x
   
-term :: ParsecT String TypeContext IO Term
+term :: Parsec String TypeContext  Term
 term = 
   identifier_term <|>
   abstraction <|>
@@ -244,17 +234,17 @@ term =
 
 
 -- typing information and ------------------------------------------------------
-identifierType :: ParsecT String TypeContext IO Type
+identifierType :: Parsec String TypeContext  Type
 identifierType = boolType <|> natType <|> functionType
                  <?> "identifier type parser"
 
-boolType :: ParsecT String TypeContext IO Type
+boolType :: Parsec String TypeContext  Type
 boolType = try $ keyword "Bool" >> return Boole
 
-natType :: ParsecT String TypeContext IO Type
+natType :: Parsec String TypeContext  Type
 natType = try $ keyword "Nat" >> return Nat
 
-functionType :: ParsecT String TypeContext IO Type
+functionType :: Parsec String TypeContext  Type
 functionType = try $ do
   keyword "arr"
   keyword "("
@@ -264,3 +254,5 @@ functionType = try $ do
   keyword ")"
   return $ Function t1 t2
 
+
+-- runParser term (M.singleton returnType NullType) "" "app(abs(x:Nat.succ(succ(x))),succ(0))"
