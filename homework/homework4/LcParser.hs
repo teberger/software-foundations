@@ -1,4 +1,4 @@
-module LambdaCalculus where
+module LcParser where
 
 import Prelude hiding (succ, pred)
 
@@ -10,72 +10,46 @@ import Text.ParserCombinators.Parsec.Char
 
 import qualified Data.Map.Strict as M
 
-type VarName = String
-
-data Term = Identifier VarName | 
-            Abstraction VarName Term |
-            Application Term Term |
-            If Term Term Term |
-            Succ Term |
-            Pred Term |
-            IsZero Term |
-            Tru |
-            Fls |
-            Zero deriving Show
-
-data Type = Function Type Type |
-            Boole |
-            Nat |
-            NullType deriving Eq
-
-instance Show Type where
-  show Boole = "Boolean"
-  show Nat = "Nat"
-  show (Function t1 t2) = "(" ++ show t1 ++ " -> " ++ show t2 ++ ")"
-  show NullType = "<NULL>"
-
-
-type TypeContext = M.Map VarName Type
+import LcData
 
 returnType = "_"
 
-whitespace :: Parsec String TypeContext  ()
+whitespace :: Monad m => ParsecT String TypeContext m ()
 whitespace = spaces >> return ()
 
-keyword :: String -> Parsec String TypeContext  ()
+keyword :: Monad m => String -> ParsecT String TypeContext m ()
 keyword p = try $ do
   whitespace
   string p <?> ("Expecting keyword: " ++ p)
   whitespace
 
-
 merge :: VarName -> Type -> TypeContext -> TypeContext
 merge name t context = M.insert name t context
 
-getReturnState :: Parsec String TypeContext  Type
+getReturnState :: Monad m => ParsecT String TypeContext m Type
 getReturnState = do
   gamma <- getState
   return $ gamma M.! returnType
 
-tru :: Parsec String TypeContext  Term
+tru :: Monad m => ParsecT String TypeContext m Term
 tru = try $ do
   keyword "true"
   modifyState $ merge returnType Boole
   return Tru
 
-fls :: Parsec String TypeContext  Term
+fls :: Monad m => ParsecT String TypeContext m Term
 fls = try $ do
   keyword "false"
   modifyState $ merge returnType Boole
   return Fls
       
-zero :: Parsec String TypeContext  Term
+zero :: Monad m => ParsecT String TypeContext m Term
 zero = try $ do
   keyword "0"
   modifyState $ merge returnType Nat
   return Zero
 
-iszero :: Parsec String TypeContext  Term
+iszero :: Monad m => ParsecT String TypeContext m Term
 iszero = try $ do
   keyword "iszero"
   keyword "("
@@ -90,7 +64,7 @@ iszero = try $ do
   else 
     fail $ "Expected type 'Nat' in iszero but was " ++ show t_type
 
-succ :: Parsec String TypeContext  Term
+succ :: Monad m => ParsecT String TypeContext m Term
 succ = try $ do
   keyword "succ"
   keyword "("
@@ -104,7 +78,7 @@ succ = try $ do
   else 
     fail $ "Expected type 'Nat' in 'Succ' but was " ++ show t_type
 
-pred :: Parsec String TypeContext  Term 
+pred :: Monad m => ParsecT String TypeContext m Term 
 pred = try $ do
   keyword "pred"
   keyword "("
@@ -118,7 +92,7 @@ pred = try $ do
   else 
     fail $ "Expected type 'Nat' in 'Pred' but was " ++ show t_type
 
-if_statement :: Parsec String TypeContext  Term
+if_statement :: Monad m => ParsecT String TypeContext m Term
 if_statement = try $ do
   keyword "if"
   cond <- term <?> "Expecting 'term' following _if_"
@@ -147,7 +121,7 @@ if_statement = try $ do
              "else type: " ++ (show else_type) ++ "\n"
 
 
-application :: Parsec String TypeContext  Term
+application :: Monad m => ParsecT String TypeContext m Term
 application = try $ do
   keyword "app"
   keyword "("
@@ -170,7 +144,7 @@ application = try $ do
    otherwise -> fail $ "Expecting Function type for the first term" ++
                         "of an application, receieved: " ++ show t1_type
 
-abstraction :: Parsec String TypeContext  Term
+abstraction :: Monad m => ParsecT String TypeContext m Term
 abstraction = try $ do
   keyword "abs"
   keyword "("
@@ -193,7 +167,7 @@ abstraction = try $ do
 
 
 --TODO: Just these two now and testing
-identifier :: Parsec String TypeContext  String
+identifier :: Monad m => ParsecT String TypeContext m String
 identifier = try $ do
   whitespace
   x <- many letter
@@ -206,7 +180,7 @@ identifier = try $ do
    otherwise -> fail $ "Could not parse an identifier, must not be a reserved" ++
                        " word or contain anything but characters: " ++ x
 
-identifier_term :: Parsec String TypeContext  Term
+identifier_term :: Monad m => ParsecT String TypeContext m Term
 identifier_term = try $ do
   x <- identifier
 
@@ -217,7 +191,7 @@ identifier_term = try $ do
   
   return $ Identifier x
   
-term :: Parsec String TypeContext  Term
+term :: Monad m => ParsecT String TypeContext m Term
 term = 
   identifier_term <|>
   abstraction <|>
@@ -232,19 +206,24 @@ term =
   (try (keyword "(" >> term >>= \k -> keyword ")" >> return k))
   <?> "Basic term parsing"
 
+start :: Monad m => ParsecT String TypeContext m (Term, Type)
+start = do
+  t <- term
+  term_type <- getReturnState
+  return (t, term_type)
 
 -- typing information and ------------------------------------------------------
-identifierType :: Parsec String TypeContext  Type
+identifierType :: Monad m => ParsecT String TypeContext m Type
 identifierType = boolType <|> natType <|> functionType
                  <?> "identifier type parser"
 
-boolType :: Parsec String TypeContext  Type
+boolType :: Monad m => ParsecT String TypeContext m Type
 boolType = try $ keyword "Bool" >> return Boole
 
-natType :: Parsec String TypeContext  Type
+natType :: Monad m => ParsecT String TypeContext m Type
 natType = try $ keyword "Nat" >> return Nat
 
-functionType :: Parsec String TypeContext  Type
+functionType :: Monad m => ParsecT String TypeContext m Type
 functionType = try $ do
   keyword "arr"
   keyword "("

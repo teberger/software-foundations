@@ -10,6 +10,7 @@ import Text.Parsec (runParser)
 
 import LcParser
 import LcEvaluator
+import LcData
 
 main :: IO ()
 main = do
@@ -21,9 +22,11 @@ main = do
 parseLC :: [String] -> IO ()
 parseLC (filename:_) = do
   contents <- hGetContents =<< openFile filename ReadMode
-  case runParser term (singleton returnType NullType) filename contents of
+  case runParser start (singleton returnType NullType) filename contents of
    Left err -> print err
-   Right answer -> print $ eval answer
+   Right (term, term_type) -> do
+     putStrLn $ "Syntax Correct. \n\tResult type: " ++ show (term_type)
+     putStrLn $ "Evaluating...\n\tResult: " ++ show (eval term)
 
 help :: String
 help = "Program requires only 1 argument. Usage: \n" ++
