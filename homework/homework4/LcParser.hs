@@ -55,7 +55,7 @@ iszero = try $ do
   keyword "("
   t <- term <?> "Error parsing: Succ ( Term ), expected Term but failed"
   t_type <- getReturnState
-  if t_type == Nat --TODO fix ths
+  if t_type == Nat 
   then do
     keyword ")"
     -- change the state from Nat to Boole

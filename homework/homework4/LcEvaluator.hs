@@ -33,7 +33,7 @@ eval1 t
 betaReduc :: VarName -> Term -> Term -> Term
 betaReduc l r (Identifier name) = if name == l
                                   then r
-                                  else (Identifier l)
+                                  else (Identifier name)
 betaReduc l r (Abstraction name term) = Abstraction name $ betaReduc l r term
 betaReduc l r (Application t1 t2) = Application (betaReduc l r t1) (betaReduc l r t2)
 betaReduc l r (If t1 t2 t3) = If (betaReduc l r t1) (betaReduc l r t2) (betaReduc l r t3)
