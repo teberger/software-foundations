@@ -1,0 +1,1 @@
+app(abs(x:Nat . if app(abs(y:Nat . iszero(y)), x) then abs(a:Bool . if a then true else false fi) else abs(z:Bool . if z then false else true fi) fi), succ (0))

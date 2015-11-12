@@ -1,0 +1,18 @@
+app (
+  app (
+    fix(abs( plus : arr (Nat, arr(Nat, Nat)) .
+          abs (x : Nat .
+            abs (y : Nat .
+              if iszero(x)
+              then
+                y
+              else
+                succ (app (app (plus, pred (x)), y))
+              fi
+            )
+          )
+    )),
+    succ (succ (0))
+  ),
+  succ (succ (succ (0)))
+)

@@ -1,0 +1,24 @@
+app (
+  app (
+    fix (abs (equal: arr(Nat, arr(Nat, Bool)).
+      abs(x:Nat .
+        abs(y:Nat . 
+          if iszero(x)
+          then
+            if iszero(y)
+            then true
+            else false
+            fi
+          else
+            if iszero(y)
+            then false
+            else app (app (equal, pred(x)), pred (y))
+            fi
+          fi
+        )
+      )
+    )),
+    succ (succ (0))
+  ),
+  succ (succ (succ (0)))
+)

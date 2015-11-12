@@ -1,0 +1,32 @@
+app (
+  app (
+    fix( abs( times : arr (Nat, arr(Nat, Nat)) .
+      abs (z : Nat .
+        abs (w : Nat .
+          if iszero(pred(z))
+          then w
+          else
+            app(
+              app(
+                fix( abs( plus : arr (Nat, arr(Nat, Nat)) .
+                  abs (x : Nat .
+                    abs (y : Nat .
+                      if iszero(x)
+                      then y
+                      else succ (app (app (plus, pred (x)), y))
+                      fi
+                    )
+                  )
+                )),
+                w
+              ),
+              app( app(times, pred(z)), w)
+            )
+          fi
+        )
+      )
+    )),
+    succ (succ (0))
+  ),
+  succ (succ (succ (0)))
+)
