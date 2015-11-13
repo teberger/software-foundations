@@ -3,12 +3,14 @@ app(
     fix (
       abs (leq:arr(Nat, arr(Nat, Bool)) .
         abs (x:Nat .
-          abs (y:Nat . if iszero(x)
-                       then
-                         true
-                       else
-                         if iszero(y) then false else app (app (leq, pred(x)), pred(y)) fi
-                       fi
+          abs (y:Nat .
+            if iszero(x)
+            then true
+            else if iszero(y)
+                 then false
+                 else app (app (leq, pred(x)), pred(y))
+                 fi
+            fi
           )
         )
       )
