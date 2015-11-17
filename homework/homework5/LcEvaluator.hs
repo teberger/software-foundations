@@ -27,9 +27,19 @@ betaReduc :: VarName -> Term -> Term -> Term
 betaReduc l r (Identifier name) = if name == l
                                   then r
                                   else (Identifier name)
-betaReduc l r (Abstraction name term) = Abstraction name $ betaReduc l r term
-betaReduc l r (Application t1 t2) = Application (betaReduc l r t1) (betaReduc l r t2)
-betaReduc l r (If t1 t2 t3) = If (betaReduc l r t1) (betaReduc l r t2) (betaReduc l r t3)
+betaReduc l r (Abstraction name term) = if name == l
+                                        -- any var with this name is bound to a
+                                        -- different abstraction and should not
+                                        -- be replaced via the current beta
+                                        -- reduction
+                                        then Abstraction name term
+                                        else Abstraction name
+                                                         (betaReduc l r term)
+betaReduc l r (Application t1 t2) = Application (betaReduc l r t1)
+                                                (betaReduc l r t2)
+betaReduc l r (If t1 t2 t3) = If (betaReduc l r t1)
+                                 (betaReduc l r t2)
+                                 (betaReduc l r t3)
 betaReduc l r (Succ t) = Succ (betaReduc l r t)
 betaReduc l r (Pred t) = Pred (betaReduc l r t)
 betaReduc l r (IsZero t) = IsZero (betaReduc l r t)
