@@ -73,6 +73,16 @@ application = try $ do
   keyword ")"
   return (App t1 t2)
 
+poly_let :: Monad M => ParsecT String () m Term
+poly_let = do
+  keyword "let"
+  iden <- identifier
+  keyword "="
+  t1 <- term
+  keyword "in"
+  t2 <- term
+  return $ Let iden t1 t2
+
 abstraction :: Monad M => ParsecT String () m Term
 abstraction = exp_abstraction <|> imp_abstraction
 
