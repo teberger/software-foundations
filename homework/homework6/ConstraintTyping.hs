@@ -4,7 +4,6 @@ import qualified Syntax as S
 import qualified Unification as U
 
 import Control.Monad.State.Lazy
-import Data.List as L 
 
 type IdentifierTable = [] (S.Identifier, S.Type)
 type TypeConstraint = (S.Type, S.Type)
@@ -21,14 +20,32 @@ reconstructType t =
    case unifoutcome of
     U.Success ->
       let typesubst = decode unifsolvedequations
-          t' = applyTypeSubstitutionToTerm typesubst t
+          t' = appSubs typesubst t
       in Just t'
     U.HaltWithFailure -> Nothing
     U.HaltWithCycle -> Nothing
 
--- TODO TODO
-applyTypeSubstitutionToTerm :: TypeSubstitution -> S.Term -> S.Term
-applyTypeSubstitutionToTerm _ t = t
+
+appSubs :: TypeSubstitution -> S.Term -> S.Term
+appSubs subs (S.Abs id id_type term) = S.Abs id
+                                       (replaceTypes subs id_type)
+                                       (appSubs subs term)
+appSubs subs (S.App t1 t2) = S.App (appSubs subs t1) (appSubs subs t2)
+appSubs subs (S.Let id t1 t2) = S.Let id (appSubs subs t1) (appSubs subs t2)
+appSubs subs (S.IAbs id t) = S.IAbs id (appSubs subs t)
+appSubs subs (S.If t1 t2 t3) = S.If (appSubs subs t1) (appSubs subs t2) (appSubs subs t3)
+appSubs subs (S.Succ t) = S.Succ (appSubs subs t)
+appSubs subs (S.Pred t) = S.Pred (appSubs subs t)
+appSubs subs (S.IsZero t) = S.IsZero (appSubs subs t)
+appSubs subs (S.Fix t) = S.Fix (appSubs subs t)
+appSubs _ t = t
+
+replaceTypes :: TypeSubstitution -> S.Type -> S.Type
+replaceTypes subs (S.TypeVar id) = case lookup id subs of
+                                    Just a -> a
+                                    Nothing -> S.TypeVar id
+replaceTypes s (S.TypeArrow t1 t2) = S.TypeArrow (replaceTypes s t1) (replaceTypes s t2)
+replaceTypes _ t = t
 
 -- TAPL: Pg 322
 deriveTypeConstraints :: S.Term -> State (Integer, IdentifierTable) (TypeConstraintSet, S.Type)
@@ -85,7 +102,7 @@ deriveTypeConstraints (S.Fix t) = do
 -- Var id
 deriveTypeConstraints (S.Var id) = do
   (_, ls) <- get
-  case L.lookup id ls of
+  case lookup id ls of
    Just a -> return $ ([], a)
    Nothing -> fail $ "Could not find identifier: " ++ id ++
               "'s type. Perhaps an error in the source?"
