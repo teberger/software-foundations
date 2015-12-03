@@ -73,8 +73,21 @@ application = try $ do
   keyword ")"
   return (App t1 t2)
 
-abstraction :: Monad m => ParsecT String () m Term
-abstraction = try $ do
+abstraction :: Monad M => ParsecT String () m Term
+abstraction = exp_abstraction <|> imp_abstraction
+
+imp_abstraction :: Monad M => ParsectT String () m Term
+imp_abstraction = do
+  keyword "abs"
+  keyword "("
+  iden <- identifier
+  keyword "."
+  t <- term
+  keyword ")"
+  return $ IAbs iden t
+
+exp_abstraction :: Monad m => ParsecT String () m Term
+exp_abstraction = try $ do
   keyword "abs"
   keyword "("
   iden <- identifier
