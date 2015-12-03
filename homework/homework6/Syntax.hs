@@ -48,6 +48,32 @@ instance Show Term where
   show Tru = "True"
   show Fls = "False"
   show Zero = "0"
+  
+betaReduc :: Identifier -> Term -> Term -> Term
+betaReduc l r (Var name) = if name == l
+                           then r
+                           else (Var name)
+-- any var with this name is bound to a different abstraction and
+-- should not be replaced via the current beta reduction
+betaReduc l r (Abs id id_type term) = if id == l
+                                      then Abs id id_type term
+                                      else Abs id id_type (betaReduc l r term)
+betaReduc l r (IAbs id term) = if id == l
+                               then IAbs id term
+                               else IAbs id (betaReduc l r term)
+betaReduc l r (Let id t1 t2) = if id == l
+                               then Let id t1 t2
+                               else Let id (betaReduc l r t1)
+                                           (betaReduc l r t2)
+betaReduc l r (App t1 t2) = App (betaReduc l r t1)
+                                (betaReduc l r t2)
+betaReduc l r (If t1 t2 t3) = If (betaReduc l r t1)
+                                 (betaReduc l r t2)
+                                 (betaReduc l r t3)
+betaReduc l r (Succ t) = Succ (betaReduc l r t)
+betaReduc l r (Pred t) = Pred (betaReduc l r t)
+betaReduc l r (IsZero t) = IsZero (betaReduc l r t)
+betaReduc l r t = t
 
 {-
 | Determines if the value is a numeric value or not
