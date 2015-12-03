@@ -12,6 +12,8 @@ data Type =
   
 data Term =
   Abs Identifier Type Term |
+  IAbs Identifier Term |
+  Let Identifier Term Term |
   App Term Term |
   Var Identifier |
   Fix Term |
@@ -28,6 +30,10 @@ instance Show Term where
   show (Abs name t_type t) = "Abs " ++ name ++
                            ": " ++ (show t_type) ++
                            " (" ++ (show t) ++ ")"
+  show (IAbs name t) = "ImplAbs " ++ name ++
+                        " (" ++ show t ++ ")"
+  show (Let id t1 t2) = "Let " ++ id ++ " = " ++ show t1 ++
+                        " in " ++ show t2
   show (App t1 t2) = "App (" ++ (show t1) ++") ("++ (show t2) ++ ")"
   show (If t1 t2 t3) = "If (" ++ show t1 ++
                        ") then (" ++ show t2 ++
@@ -59,6 +65,7 @@ isValue Tru = True
 isValue Fls = True
 isValue (Var _) = True
 isValue (Abs _ _ _) = True
+isValue (IAbs _ _) = True
 isValue t = isNumeric t
 
 convertNumeric :: Term -> Int
