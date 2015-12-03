@@ -39,3 +39,5 @@ test4 = unify t4_problem
 
 -- test4 output: (HaltWithCycle,[(Var "A",Fun "g" [Var "A"])])
 
+
+-- reconstructType $ S.Let "double" (S.IAbs "f" (S.IAbs "a" (S.App (S.Var "f") (S.App (S.Var "f") (S.Var "a"))))) (S.Let "a" (S.App (S.App (S.Var "double") (S.Abs "x" S.TypeNat (S.Succ (S.Succ (S.Var "x"))))) (S.Succ S.Zero)) (S.Let "b" (S.App (S.App (S.Var "double") (S.Abs "x" S.TypeBool (S.Var "x"))) S.Fls) (S.If (S.Var "b") (S.Var "a") (S.Zero))))

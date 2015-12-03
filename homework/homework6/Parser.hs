@@ -122,7 +122,7 @@ identifier = try $ do
   x <- many letter
   case all (x /=) ["succ", "pred", "if", "fi", "arr", "Bool", "Nat",
                    "abs", "app", "true", "false", "then", "else",
-                   "iszero", "fix", ""]
+                   "iszero", "fix", "let", "in" ,""]
     of
    True -> do
      return x
@@ -151,7 +151,7 @@ term =
 
 -- typing information and ------------------------------------------------------
 identifierType :: Monad m => ParsecT String () m Type
-identifierType = boolType <|> natType <|> functionType
+identifierType = boolType <|> natType <|> functionType <|> varType
                  <?> "identifier type parser"
 
 boolType :: Monad m => ParsecT String () m Type
@@ -159,6 +159,9 @@ boolType = keyword "Bool" >> return TypeBool
 
 natType :: Monad m => ParsecT String () m Type
 natType = keyword "Nat" >> return TypeNat
+
+varType :: Monad m => ParsecT String () m Type
+varType = many letter >>= return . TypeVar
 
 functionType :: Monad m => ParsecT String () m Type
 functionType = try $ do

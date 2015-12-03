@@ -61,6 +61,15 @@ deriveTypeConstraints (S.Abs id id_type t) = do
   (j, _) <- get
   put (j, ls)
   return $ (set, S.TypeArrow id_type rtype)
+deriveTypeConstraints (S.IAbs id t) = do
+  (i, ls) <- get
+  let absType = S.TypeVar ('X':show i)
+  put (i+1, (id, absType):ls)
+  (set, rtype) <- deriveTypeConstraints t
+  (j, _) <- get
+  put (j, ls)
+  return $ (set, S.TypeArrow absType rtype)
+deriveTypeConstraints (S.Let id t1 t2) = deriveTypeConstraints (S.betaReduc id t1 t2)
 -- App t1 t2
 deriveTypeConstraints (S.App t1 t2) = do
   (s1, r1) <- deriveTypeConstraints t1
