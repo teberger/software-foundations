@@ -11,10 +11,10 @@ type TypeConstraint = (S.Type, S.Type)
 type TypeConstraintSet = [] TypeConstraint
 type TypeSubstitution = []  (S.Identifier, S.Type)
 
---reconstructType :: S.Term -> Maybe S.Term
+reconstructType :: S.Term -> Maybe S.Term
 reconstructType t = 
   let
-    constraints = evalState (deriveTypeConstraints t) (0, [])
+    (constraints, _) = evalState (deriveTypeConstraints t) (0, [])
     unifencoding = encode constraints
     (unifoutcome, unifsolvedequations) = U.unify unifencoding
   in
@@ -30,74 +30,54 @@ reconstructType t =
 applyTypeSubstitutionToTerm :: TypeSubstitution -> S.Term -> S.Term
 applyTypeSubstitutionToTerm _ t = t
 
-increment :: State (Integer, [] (S.Identifier, S.Type)) Integer
-increment = do
-  (i, ls) <- get
-  put ((i+1), ls)
-  return i 
-
--- TODO TODO
-deriveTypeConstraints :: S.Term -> State (Integer, IdentifierTable) TypeConstraintSet
+-- TAPL: Pg 322
+deriveTypeConstraints :: S.Term -> State (Integer, IdentifierTable) (TypeConstraintSet, S.Type)
 --Zero
-deriveTypeConstraints S.Zero = do
-  i <- increment
-  return . return $ (S.TypeVar ('X':show i), S.TypeNat)
---Tru 
-deriveTypeConstraints S.Tru = do
-  i <- increment
-  return . return $ (S.TypeVar ('X':show i), S.TypeBool)
---Fls
-deriveTypeConstraints S.Fls = do
-  i <- increment
-  return . return $ (S.TypeVar ('X':show i), S.TypeBool) 
---Succ t 
+deriveTypeConstraints S.Zero = return ([], S.TypeNat)
+deriveTypeConstraints S.Tru = return ([], S.TypeBool)
+deriveTypeConstraints S.Fls = return ([], S.TypeBool)
 deriveTypeConstraints (S.Succ t) = do
-  set <- deriveTypeConstraints t
-  i <- increment
-  return $ (S.TypeVar ('X':show i), S.TypeNat) :set
+  (set, rtype) <- deriveTypeConstraints t
+  return $ ((rtype, S.TypeNat) :set, S.TypeNat)
 --Pred t
 deriveTypeConstraints (S.Pred t) = do
-  set <- deriveTypeConstraints t
-  i <- increment
-  return $ (S.TypeVar ('X':show i), S.TypeNat) :set
+  (set, rtype) <- deriveTypeConstraints t
+  return $ ((rtype, S.TypeNat) :set, S.TypeNat)
 -- IsZero t 
 deriveTypeConstraints (S.IsZero t) = do
-  set <- deriveTypeConstraints t
-  i <- increment
-  return $ (S.TypeVar ('X':show i), S.TypeBool) :set
+  (set, rtype) <- deriveTypeConstraints t
+  return $ ((rtype, S.TypeNat) :set, S.TypeBool)
 -- If t1 t2 t3  
 deriveTypeConstraints (S.If t1 t2 t3) = do
-  o1@(s1:_) <- deriveTypeConstraints t1
-  o2@(s2:_) <- deriveTypeConstraints t2
-  o3@(s3:_) <- deriveTypeConstraints t3
-  return $ [(snd s2, snd s3), (snd s1, S.TypeBool)] ++ o1 ++ o2 ++ o3
+  (s1, r1) <- deriveTypeConstraints t1
+  (s2, r2) <- deriveTypeConstraints t2
+  (s3, r3) <- deriveTypeConstraints t3
+  return $ ([(r2, r3), (r1, S.TypeBool)] ++ s1 ++ s2 ++ s3, r2)
 -- Abs id id_type t
 deriveTypeConstraints (S.Abs id id_type t) = do
   (i, ls) <- get
   put (i, (id, id_type):ls)
-  s@(s1:set) <- deriveTypeConstraints t
-  j <- increment
-  return $ (S.TypeVar ('X':show j), S.TypeArrow id_type (snd s1)) : set
+  (set, rtype) <- deriveTypeConstraints t
+  (j, _) <- get
+  put (j, ls)
+  return $ (set, S.TypeArrow id_type rtype)
 -- App t1 t2
 deriveTypeConstraints (S.App t1 t2) = do
-  o1@(s1:_) <- deriveTypeConstraints t1
-  o2@(s2:_) <- deriveTypeConstraints t2
-  i <- increment
-  return $ (snd s1, S.TypeArrow
-                      (snd s2)
-                      (S.TypeVar ('X':show i)))
-         : o1 ++ o2
+  (s1, r1) <- deriveTypeConstraints t1
+  (s2, r2) <- deriveTypeConstraints t2
+  (i, ls) <- get
+  put (i+1, ls)
+  let rtype = S.TypeVar ('X':show i)
+  return $ ((r1, S.TypeArrow r2 rtype) : s1 ++ s2, rtype)
 -- Fix t1 t2
 deriveTypeConstraints (S.Fix t) = do
-  o1@((_,S.TypeArrow f g):_) <- deriveTypeConstraints t
-  i <- increment
-  return $ (S.TypeVar ('X':show i), f) : o1
+  (set, S.TypeArrow f g) <- deriveTypeConstraints t
+  return $ (set, f)
 -- Var id
 deriveTypeConstraints (S.Var id) = do
-  i <- increment
   (_, ls) <- get
   case L.lookup id ls of
-   Just a -> return $ return (S.TypeVar ('X':show i), a)
+   Just a -> return $ ([], a)
    Nothing -> fail $ "Could not find identifier: " ++ id ++
               "'s type. Perhaps an error in the source?"
   
