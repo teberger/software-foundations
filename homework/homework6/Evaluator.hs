@@ -1,9 +1,60 @@
 module Evaluator where 
 
 import Syntax
+import Data.List (delete)
+import Control.Monad.State.Lazy
 
-evalType :: Term -> Type
-evalType = undefined
+evalType :: Term -> State [(Identifier, Type)] Type
+evalType (Abs id id_type t) = do
+  types <- get
+  let t_type = (id, id_type)
+  put (t_type:types)
+  r <- evalType t 
+  put $ delete t_type types
+  return $ (TypeArrow id_type r)
+evalType (App t1 t2) = do 
+  t1' <- evalType t1
+  t2' <- evalType t2
+  case t1' of
+   (TypeArrow s1 s2) -> case s1 == t2' of
+     True -> return t2'
+     False -> fail "parameter types do no match"
+   otherwise -> fail "t1 not a function type"
+evalType (If t1 t2 t3) = do
+  t1_type <- evalType t1
+  t2_type <- evalType t2
+  t3_type <- evalType t3
+  case (t2_type == t3_type) && t1_type == TypeBool of
+   True -> return t2_type
+   False -> fail "t2 /= t3 or t1 not a bool" 
+evalType (Var v) = do
+  types <- get
+  case lookup v types of
+   Just a -> return a
+   Nothing -> fail ""
+evalType (Fix t) = do
+  t_type <- evalType t
+  case t_type of
+   (TypeArrow t1 t2) -> return $ t1
+   otherwise -> fail ""
+evalType (Succ t) = do
+  t_type <- evalType t
+  case t_type of
+   TypeNat -> return $ TypeNat
+   otherwise -> fail ""
+evalType (Pred t) = do
+  t_type <- evalType t
+  case t_type of
+   TypeNat -> return $ TypeNat
+   otherwise -> fail ""
+evalType (IsZero t) = do
+  t_type <- evalType t
+  case t_type of
+   TypeNat -> return $ TypeBool
+   otherwise -> fail ""
+evalType Zero = return TypeNat
+evalType Tru = return TypeBool
+evalType Fls = return TypeBool
 
 eval :: Term -> Term
 eval t = case eval1 t of

@@ -11,15 +11,15 @@ data Type =
   TypeBool deriving (Show, Eq)
   
 data Term =
-  Abs Identifier Type Term | -- 
-  Let Identifier Term Term | -- 
-  App Term Term | -- 
-  Var Identifier | -- 
+  Abs Identifier Type Term | 
+  Let Identifier Term Term | 
+  App Term Term | 
+  Var Identifier | 
   Fix Term | 
-  If Term Term Term | -- 
-  Succ Term | -- 
-  Pred Term | -- 
-  IsZero Term | -- 
+  If Term Term Term |
+  Succ Term | 
+  Pred Term | 
+  IsZero Term |
   Zero |
   Tru |
   Fls deriving Eq
