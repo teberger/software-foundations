@@ -12,7 +12,6 @@ data Type =
   
 data Term =
   Abs Identifier Type Term |
-  IAbs Identifier Term |
   Let Identifier Term Term |
   App Term Term |
   Var Identifier |
@@ -30,8 +29,6 @@ instance Show Term where
   show (Abs name t_type t) = "Abs " ++ name ++
                            ": " ++ (show t_type) ++
                            " (" ++ (show t) ++ ")"
-  show (IAbs name t) = "ImplAbs " ++ name ++
-                        " (" ++ show t ++ ")"
   show (Let id t1 t2) = "Let " ++ id ++ " = " ++ show t1 ++
                         " in " ++ show t2
   show (App t1 t2) = "App (" ++ (show t1) ++") ("++ (show t2) ++ ")"
@@ -58,9 +55,6 @@ betaReduc l r (Var name) = if name == l
 betaReduc l r (Abs id id_type term) = if id == l
                                       then Abs id id_type term
                                       else Abs id id_type (betaReduc l r term)
-betaReduc l r (IAbs id term) = if id == l
-                               then IAbs id term
-                               else IAbs id (betaReduc l r term)
 betaReduc l r (Let id t1 t2) = if id == l
                                then Let id t1 t2
                                else Let id (betaReduc l r t1)

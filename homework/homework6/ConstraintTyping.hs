@@ -31,8 +31,6 @@ appSubs subs (S.Abs id id_type term) = S.Abs id
                                        (replaceTypes subs id_type)
                                        (appSubs subs term)
 appSubs subs (S.App t1 t2) = S.App (appSubs subs t1) (appSubs subs t2)
-appSubs subs (S.Let id t1 t2) = S.Let id (appSubs subs t1) (appSubs subs t2)
-appSubs subs (S.IAbs id t) = S.IAbs id (appSubs subs t)
 appSubs subs (S.If t1 t2 t3) = S.If (appSubs subs t1) (appSubs subs t2) (appSubs subs t3)
 appSubs subs (S.Succ t) = S.Succ (appSubs subs t)
 appSubs subs (S.Pred t) = S.Pred (appSubs subs t)
@@ -78,15 +76,9 @@ deriveTypeConstraints (S.Abs id id_type t) = do
   (j, _) <- get
   put (j, ls)
   return $ (set, S.TypeArrow id_type rtype)
-deriveTypeConstraints (S.IAbs id t) = do
-  (i, ls) <- get
-  let absType = S.TypeVar ('X':show i)
-  put (i+1, (id, absType):ls)
-  (set, rtype) <- deriveTypeConstraints t
-  (j, _) <- get
-  put (j, ls)
-  return $ (set, S.TypeArrow absType rtype)
-deriveTypeConstraints (S.Let id t1 t2) = deriveTypeConstraints (S.betaReduc id t1 t2)
+deriveTypeConstraints (S.Let id t1 t2) = do
+  t' <- S.constraintReduc id t1 t2
+  deriveTypeConstraints t'
 -- App t1 t2
 deriveTypeConstraints (S.App t1 t2) = do
   (s1, r1) <- deriveTypeConstraints t1
