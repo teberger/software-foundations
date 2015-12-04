@@ -2,6 +2,25 @@ module UnificationTests where
 
 import Unification
 
+t1 = Var "X" :: Term String String
+t2 = Var "Y" :: Term String String
+test_1 = unify [(t1, t2)] 
+
+t3 = Var "Z" :: Term String String
+test_2 = unify [(t1, t2), (t1, t3)] 
+
+t4 = Fun "f" [t1]
+test_3 = unify [(t1, t2), (t3, t4)]
+
+test_4 = unify [(t1, t3), (t3, t4)]
+
+test_5 = unify [(t4, t3)]
+
+t6 = Fun "f" [t2]
+test_6 = unify [(t4, t6)]
+
+t7 = Fun "g" [t2]
+test_7 = unify [(t4, t7)]
 
 t11 = Fun "g" [Var "X2"]
 s11 = Var "X1"

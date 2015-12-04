@@ -11,7 +11,7 @@ type TypeConstraint = (S.Type, S.Type)
 type TypeConstraintSet = [] TypeConstraint
 type TypeSubstitution = []  (S.Identifier, S.Type)
 
---reconstructType :: S.Term -> Maybe S.Term
+reconstructType :: S.Term -> Maybe S.Term
 reconstructType t = 
   let
     t0 = evalState (incVarTypes (evalLets t)) 0
@@ -49,7 +49,6 @@ replaceTypes _ t = t
 
 -- TAPL: Pg 322
 deriveTypeConstraints :: S.Term -> State (Integer, IdentifierTable) (TypeConstraintSet, S.Type)
---Zero
 deriveTypeConstraints S.Zero = return ([], S.TypeNat)
 deriveTypeConstraints S.Tru = return ([], S.TypeBool)
 deriveTypeConstraints S.Fls = return ([], S.TypeBool)
