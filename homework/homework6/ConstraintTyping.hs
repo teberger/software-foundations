@@ -4,23 +4,25 @@ import qualified Syntax as S
 import qualified Unification as U
 
 import Control.Monad.State.Lazy
+import Control.Monad as M 
 
 type IdentifierTable = [] (S.Identifier, S.Type)
 type TypeConstraint = (S.Type, S.Type)
 type TypeConstraintSet = [] TypeConstraint
 type TypeSubstitution = []  (S.Identifier, S.Type)
 
-reconstructType :: S.Term -> Maybe S.Term
+--reconstructType :: S.Term -> Maybe S.Term
 reconstructType t = 
   let
-    (constraints, _) = evalState (deriveTypeConstraints t) (0, [])
+    t0 = evalState (incVarTypes (evalLets t)) 0
+    (constraints, _) = evalState (deriveTypeConstraints t0) (0, [])
     unifencoding = encode constraints
     (unifoutcome, unifsolvedequations) = U.unify unifencoding
   in
    case unifoutcome of
     U.Success ->
       let typesubst = decode unifsolvedequations
-          t' = appSubs typesubst t
+          t' = appSubs typesubst t0
       in Just t'
     U.HaltWithFailure -> Nothing
     U.HaltWithCycle -> Nothing
@@ -71,14 +73,11 @@ deriveTypeConstraints (S.If t1 t2 t3) = do
 -- Abs id id_type t
 deriveTypeConstraints (S.Abs id id_type t) = do
   (i, ls) <- get
-  put (i, (id, id_type):ls)
+  put (i+1, (id, id_type):ls)
   (set, rtype) <- deriveTypeConstraints t
   (j, _) <- get
   put (j, ls)
   return $ (set, S.TypeArrow id_type rtype)
-deriveTypeConstraints (S.Let id t1 t2) = do
-  t' <- S.constraintReduc id t1 t2
-  deriveTypeConstraints t'
 -- App t1 t2
 deriveTypeConstraints (S.App t1 t2) = do
   (s1, r1) <- deriveTypeConstraints t1
@@ -98,7 +97,61 @@ deriveTypeConstraints (S.Var id) = do
    Just a -> return $ ([], a)
    Nothing -> fail $ "Could not find identifier: " ++ id ++
               "'s type. Perhaps an error in the source?"
+
+evalLets :: S.Term -> S.Term 
+evalLets (S.Let id t1 t2) = evalLets $ S.betaReduc id t1 t2
+evalLets (S.App t1 t2) = S.App (evalLets t1) (evalLets t2)
+evalLets (S.Abs id id_type t) = S.Abs id id_type (evalLets t)
+evalLets (S.If t1 t2 t3) = S.If (evalLets t1) (evalLets t2) (evalLets t3)
+evalLets (S.Fix t) = S.Fix (evalLets t)
+evalLets (S.Succ t) = S.Succ (evalLets t)
+evalLets (S.Pred t) = S.Pred (evalLets t)
+evalLets (S.IsZero t) = S.IsZero (evalLets t)
+-- is a value
+evalLets t = t
+
+
+incTypes :: S.Type -> State Integer S.Type
+incTypes (S.TypeArrow t1 t2) = do
+  t1' <- incTypes t1
+  t2' <- incTypes t2
+  return $ S.TypeArrow t1' t2'
+incTypes (S.TypeVar v) = do
+  i <- get
+  put (i+1)
+  return $ S.TypeVar (show i ++ v)
+incTypes t = return t
+
+incVarTypes :: S.Term -> State Integer S.Term
+incVarTypes (S.App t1 t2) = do
+  t1' <- incVarTypes t1
+  t2' <- incVarTypes t2
+  return $ S.App t1' t2'
+incVarTypes (S.Abs id id_type t) = do
+  id_type' <- incTypes id_type
+  t' <- incVarTypes t
+  return $ S.Abs id id_type' t'
+incVarTypes (S.If t1 t2 t3) = do
+  t1' <- incVarTypes t1
+  t2' <- incVarTypes t2
+  t3' <- incVarTypes t3  
+  return $ S.If t1' t2' t3
+incVarTypes (S.Fix t) = do
+  t' <- incVarTypes t
+  return $ S.Fix t'
+incVarTypes (S.Succ t) = do
+  t' <- incVarTypes t
+  return $ S.Succ t'
+incVarTypes (S.Pred t) = do
+  t' <- incVarTypes t
+  return $ S.Pred t'
+incVarTypes (S.IsZero t) = do
+  t' <- incVarTypes t
+  return $ S.IsZero t'
+-- is a value
+incVarTypes t = return t
   
+
 type TypeUnifVar = S.Identifier
 data TypeUnifFun =
   TypeUnifArrow |

@@ -10,25 +10,25 @@ import Syntax
 
 returnType = "_"
 
-whitespace :: Monad m => ParsecT String () m ()
+whitespace :: Monad m => ParsecT String Integer m ()
 whitespace = spaces >> return ()
 
-keyword :: Monad m => String -> ParsecT String () m ()
+keyword :: Monad m => String -> ParsecT String Integer m ()
 keyword p = try $ do
   whitespace
   string p <?> ("Expecting keyword: " ++ p)
   whitespace
 
-tru :: Monad m => ParsecT String () m Term
+tru :: Monad m => ParsecT String Integer m Term
 tru = keyword "true" >> return Tru
 
-fls :: Monad m => ParsecT String () m Term
+fls :: Monad m => ParsecT String Integer m Term
 fls = keyword "false" >> return Fls
       
-zero :: Monad m => ParsecT String () m Term
+zero :: Monad m => ParsecT String Integer m Term
 zero = keyword "0" >> return Zero
 
-iszero :: Monad m => ParsecT String () m Term
+iszero :: Monad m => ParsecT String Integer m Term
 iszero = try $ do
   keyword "iszero"
   keyword "("
@@ -36,7 +36,7 @@ iszero = try $ do
   keyword ")"
   return (IsZero t)
 
-succ :: Monad m => ParsecT String () m Term
+succ :: Monad m => ParsecT String Integer m Term
 succ = try $ do
   keyword "succ"
   keyword "("
@@ -44,7 +44,7 @@ succ = try $ do
   keyword ")"
   return (Succ t)
 
-pred :: Monad m => ParsecT String () m Term 
+pred :: Monad m => ParsecT String Integer m Term 
 pred = try $ do
   keyword "pred"
   keyword "("
@@ -52,7 +52,7 @@ pred = try $ do
   keyword ")"
   return (Pred t)
 
-if_statement :: Monad m => ParsecT String () m Term
+if_statement :: Monad m => ParsecT String Integer m Term
 if_statement = try $ do
   keyword "if"
   cond <- term <?> "Expecting 'term' following _if_"
@@ -63,7 +63,7 @@ if_statement = try $ do
   keyword "fi"
   return (If cond t_then t_else)
 
-application :: Monad m => ParsecT String () m Term
+application :: Monad m => ParsecT String Integer m Term
 application = try $ do
   keyword "app"
   keyword "("
@@ -73,7 +73,7 @@ application = try $ do
   keyword ")"
   return (App t1 t2)
 
-poly_let :: Monad m => ParsecT String () m Term
+poly_let :: Monad m => ParsecT String Integer m Term
 poly_let = do
   keyword "let"
   iden <- identifier
@@ -83,10 +83,10 @@ poly_let = do
   t2 <- term
   return $ Let iden t1 t2
 
-abstraction :: Monad m => ParsecT String () m Term
+abstraction :: Monad m => ParsecT String Integer m Term
 abstraction = exp_abstraction <|> imp_abstraction
 
-imp_abstraction :: Monad m => ParsecT String () m Term
+imp_abstraction :: Monad m => ParsecT String Integer m Term
 imp_abstraction = do
   keyword "abs"
   keyword "("
@@ -94,9 +94,11 @@ imp_abstraction = do
   keyword "."
   t <- term
   keyword ")"
-  return $ IAbs iden t
+  i <- getState
+  putState (i+1)
+  return $ Abs iden (TypeVar ('X':show i)) t
 
-exp_abstraction :: Monad m => ParsecT String () m Term
+exp_abstraction :: Monad m => ParsecT String Integer m Term
 exp_abstraction = try $ do
   keyword "abs"
   keyword "("
@@ -108,7 +110,7 @@ exp_abstraction = try $ do
   keyword ")"
   return $ Abs iden iden_type t
 
-fix :: Monad m => ParsecT String () m Term
+fix :: Monad m => ParsecT String Integer m Term
 fix = try $ do
   keyword "fix"
   keyword "("
@@ -116,7 +118,7 @@ fix = try $ do
   keyword ")"
   return $ Fix t
 
-identifier :: Monad m => ParsecT String () m String
+identifier :: Monad m => ParsecT String Integer m String
 identifier = try $ do
   whitespace
   x <- many letter
@@ -129,12 +131,13 @@ identifier = try $ do
    otherwise -> fail $ "Could not parse an identifier, must not be a reserved" ++
                        " word or contain anything but characters: " ++ x
 
-identifier_term :: Monad m => ParsecT String () m Term
+identifier_term :: Monad m => ParsecT String Integer m Term
 identifier_term = identifier >>= return . Var
   
-term :: Monad m => ParsecT String () m Term
+term :: Monad m => ParsecT String Integer m Term
 term = 
   identifier_term <|>
+  poly_let <|>
   fix <|>
   abstraction <|>
   application <|>
@@ -150,20 +153,20 @@ term =
   <?> "Basic term parsing"
 
 -- typing information and ------------------------------------------------------
-identifierType :: Monad m => ParsecT String () m Type
+identifierType :: Monad m => ParsecT String Integer m Type
 identifierType = boolType <|> natType <|> functionType <|> varType
                  <?> "identifier type parser"
 
-boolType :: Monad m => ParsecT String () m Type
+boolType :: Monad m => ParsecT String Integer m Type
 boolType = keyword "Bool" >> return TypeBool
 
-natType :: Monad m => ParsecT String () m Type
+natType :: Monad m => ParsecT String Integer m Type
 natType = keyword "Nat" >> return TypeNat
 
-varType :: Monad m => ParsecT String () m Type
+varType :: Monad m => ParsecT String Integer m Type
 varType = many letter >>= return . TypeVar
 
-functionType :: Monad m => ParsecT String () m Type
+functionType :: Monad m => ParsecT String Integer m Type
 functionType = try $ do
   keyword "arr"
   keyword "("

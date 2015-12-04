@@ -7,8 +7,9 @@ import Data.Either (Either(Left, Right))
 
 import Text.Parsec (runParser)
 
+import ConstraintTyping
 import Parser
-import Evaluator
+import Evaluator as E
 import Syntax
 
 main :: IO ()
@@ -21,11 +22,15 @@ main = do
 parseLC :: [String] -> IO ()
 parseLC (filename:_) = do
   contents <- hGetContents =<< openFile filename ReadMode
-  case runParser start 0 filename contents of
+  case runParser term 0 filename contents of
    Left err -> print err
    Right term -> do
-     putStrLn $ "Syntax Correct. \n\tResult type: " -- ++ show (term_type)
---     putStrLn $ "Evaluating...\n\tResult: " ++ show (eval term)
+     putStrLn "Syntax Correct. Typing..."
+     case reconstructType term of
+      Just t' -> do 
+        putStrLn $ "Syntax Correct. \n\tResult type: " ++ show (E.evalType t')
+        putStrLn $ "Evaluating...\n\tResult: " ++ show (E.eval t')
+      Nothing -> putStrLn "Could not reconstruct type"
 
 help :: String
 help = "Program requires only 1 argument. Usage: \n" ++

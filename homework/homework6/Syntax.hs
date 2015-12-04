@@ -11,15 +11,15 @@ data Type =
   TypeBool deriving (Show, Eq)
   
 data Term =
-  Abs Identifier Type Term |
-  Let Identifier Term Term |
-  App Term Term |
-  Var Identifier |
-  Fix Term |
-  If Term Term Term |
-  Succ Term |
-  Pred Term |
-  IsZero Term |
+  Abs Identifier Type Term | -- 
+  Let Identifier Term Term | -- 
+  App Term Term | -- 
+  Var Identifier | -- 
+  Fix Term | 
+  If Term Term Term | -- 
+  Succ Term | -- 
+  Pred Term | -- 
+  IsZero Term | -- 
   Zero |
   Tru |
   Fls deriving Eq
@@ -85,7 +85,6 @@ isValue Tru = True
 isValue Fls = True
 isValue (Var _) = True
 isValue (Abs _ _ _) = True
-isValue (IAbs _ _) = True
 isValue t = isNumeric t
 
 convertNumeric :: Term -> Int

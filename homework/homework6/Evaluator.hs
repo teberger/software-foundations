@@ -2,6 +2,9 @@ module Evaluator where
 
 import Syntax
 
+evalType :: Term -> Type
+evalType = undefined
+
 eval :: Term -> Term
 eval t = case eval1 t of
           Just t1 -> eval t1
@@ -12,7 +15,7 @@ eval1 t
   | isValue t = Nothing
   | otherwise = case t of
                  Fix t -> evalFix t
-                 Application t1 t2 -> evalApplication t1 t2
+                 App t1 t2 -> evalApplication t1 t2
                  If t1 t2 t3 -> evalIf t1 t2 t3
                  IsZero t -> evalIsZero t
                  Succ t -> evalSucc t 
@@ -20,38 +23,16 @@ eval1 t
                  otherwise -> Nothing
 
 evalFix :: Term -> Maybe Term
-evalFix a@(Abstraction varname t) = Just $ betaReduc varname (Fix a) t
+evalFix a@(Abs varname _ t) = Just $ betaReduc varname (Fix a) t
 evalFix t = eval1 t >>= return . Fix
 
-betaReduc :: VarName -> Term -> Term -> Term
-betaReduc l r (Identifier name) = if name == l
-                                  then r
-                                  else (Identifier name)
-betaReduc l r (Abstraction name term) = if name == l
-                                        -- any var with this name is bound to a
-                                        -- different abstraction and should not
-                                        -- be replaced via the current beta
-                                        -- reduction
-                                        then Abstraction name term
-                                        else Abstraction name
-                                                         (betaReduc l r term)
-betaReduc l r (Application t1 t2) = Application (betaReduc l r t1)
-                                                (betaReduc l r t2)
-betaReduc l r (If t1 t2 t3) = If (betaReduc l r t1)
-                                 (betaReduc l r t2)
-                                 (betaReduc l r t3)
-betaReduc l r (Succ t) = Succ (betaReduc l r t)
-betaReduc l r (Pred t) = Pred (betaReduc l r t)
-betaReduc l r (IsZero t) = IsZero (betaReduc l r t)
-betaReduc l r t = t
-
 evalApplication :: Term -> Term -> Maybe Term
-evalApplication t1@(Abstraction name t) t2
+evalApplication t1@(Abs name _ t) t2
   | isValue t2 = Just (betaReduc name t2 t)
-  | otherwise = eval1 t2 >>= return . (Application t1)
+  | otherwise = eval1 t2 >>= return . (App t1)
 evalApplication t1 t2
-  | isValue t1 = eval1 t2 >>= return . (Application t1)
-  | otherwise = eval1 t1 >>= return . \t -> (Application t t2)
+  | isValue t1 = eval1 t2 >>= return . (App t1)
+  | otherwise = eval1 t1 >>= return . \t -> (App t t2)
 
 evalIf :: Term -> Term -> Term -> Maybe Term
 evalIf Tru t2 t3 = Just t2

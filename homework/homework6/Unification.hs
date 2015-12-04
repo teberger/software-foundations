@@ -41,14 +41,14 @@ unify = unify' []
                                              else unify' (s:sigma) $
                                                     applySubst' eqns [(v1, Var v2)]
     unify' sigma (s@(Var v, t):eqns) = if inVars v t
-                                        then (HaltWithCycle, [])
+                                        then (HaltWithCycle, [s])
                                         else unify' (s:sigma) $
                                                applySubst' eqns [(v, t)]
     unify' sigma ((t, Var v):eqns) = unify' sigma ((Var v, t):eqns) -- flip 
-    unify' sigma ((Fun f terms_1, Fun g terms_2):eqns) = if  f == g
+    unify' sigma (s@(Fun f terms_1, Fun g terms_2):eqns) = if  f == g
                                                          then unify' sigma $
                                                                 (zip terms_1 terms_2) ++ eqns
-                                                         else (HaltWithFailure, [])
+                                                         else (HaltWithFailure, [s])
 
 inVars :: Eq v => v -> Term v f -> Bool
 inVars v0 (Var v1) = v1 == v0
